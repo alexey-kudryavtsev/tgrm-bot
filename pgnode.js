@@ -19,12 +19,12 @@ var pool = new pg.Pool(
 
 function checkPassword(login,password) {
 	var password_query = pool.query('SELECT password_hash FROM system_user WHERE login=$1',[login]);
-	var res = new Promise((resolve,reject)=> {
+	var result = new Promise((resolve,reject)=> {
 	password_query.then(function(val){
 		resolve(bcrypt.compare(password,val.rows[0].password_hash))
 	}).catch(function(e){resolve(false);});
 	})
-	return res;
+	return result;
 }
 
 module.exports.checkPassword=checkPassword;
