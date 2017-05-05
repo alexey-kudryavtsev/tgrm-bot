@@ -1,0 +1,59 @@
+// QR-code and barcode scanning module
+
+var qrcode = require('jsqr')
+var https = require('https')
+var jpeg = require('jpeg-js')
+
+function decodeQRCode (link) {
+	var image;
+	var qrText="";
+	https.get(link, function(res) {
+
+	   var buffers = [];
+	   var length = 0;
+
+	   res.on("data", function(chunk) {
+
+		  // store each block of data
+		  length += chunk.length;
+		  buffers.push(chunk);
+	   });
+
+	   res.on("end", function() {
+
+		  // combine the binary data into single buffer
+		  image = Buffer.concat(buffers);
+		  
+		  //finally, extract QR from photo
+		  parseResult({img: image; qr:qrText})
+	   })
+	})
+	return qrText;
+}
+
+function parseResult(obj) {
+	
+	//convert jpeg photo to RGBA point array
+	var rawImageData = jpeg.decode(obj.image,true)
+	
+	//convert to BW image
+	var binarizedImage = qrcode.binarizeImage(rawImageData.data, rawImageData.width, rawImageData.height);
+	
+	// find QR-code
+	var location = qrcode.locateQRInBinaryImage(binarizedImage);
+	if (!location) {
+	  return;
+	}
+	
+	// extract QR-code
+	var rawQR = qrcode.extractQRFromBinaryImage(binarizedImage, location);
+	if (!rawQR) {
+	  return;
+	}
+	
+	// decode QR to text
+	var decodedQR = qrcode.decodeQR(rawQR);
+	obj.qr=decodedQR;
+}
+
+module.exports.decodeQRCode = decodeQRCode;
