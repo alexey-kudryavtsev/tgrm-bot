@@ -3,14 +3,16 @@
 var pgConnector=require('./pgnode.js')
 var Telegraf=require('telegraf')
 var fs = require('fs')
+var qrscan = require('./qrscan.js')
 
 // Prevent crashing on errors
 process.on('uncaughtException', (err) => {
-  console.error('whoops! there was an error');
+  console.error('whoops! there was an error '+err);
 });
 
 // Create bot webhook
-var bot = new Telegraf('318594533:AAGNCFcA9dz7LI1V9GyAqOofqBOoTjTvVzU',
+var botToken='318594533:AAGNCFcA9dz7LI1V9GyAqOofqBOoTjTvVzU'
+var bot = new Telegraf(botToken,
 	{
 	  telegram: {           // Telegram options
 		agent: null,        // https.Agent instance, allows custom proxy, certificate, keep alive, etc.
@@ -34,10 +36,18 @@ function User(userName, loginStatus) {
 // Array of bot users
 var loggedUsers = []
 
+// Function to download and decode QR-photo
+function parseQRPhoto(ctx) {
+	return (r)=>{
+		var QRCode = qrscan.decodeQRCode('https://api.telegram.org/file/bot'+botToken+'/'+r.file_path, (QRCode) => {
+		if(QRCode==='') {ctx.reply('No QR Code is found. Try another photo')} else {ctx.reply('QR code is '+ QRCode)}})
+	}
+}
 
 // Function to check if user has authentication for chatting
 function updateLoginStatus(ctx, nextAction) {
-	var loginStatus = loggedUsers[ctx.chat.id].loginStatus
+	if(loggedUsers[ctx.chat.id]===undefined) {loggedUsers[ctx.chat.id] = new User(undefined, 0)}
+	loginStatus = loggedUsers[ctx.chat.id].loginStatus
 	
 	switch(loginStatus) {
 		case 0:
@@ -76,8 +86,14 @@ bot.command('start', (ctx) => {
 		
 })
 
+// Specific action for QR-photo
+bot.on("photo", function(ctx) {updateLoginStatus(ctx,function(ctx) {
+	bot.telegram.getFile(ctx.message.photo[ctx.message.photo.length-1].file_id).then(parseQRPhoto(ctx))})})
+
+// Generic action
 bot.on("message",function(ctx){
 		updateLoginStatus(ctx,()=>{})
 	})
+	
 
 bot.startWebhook('/', tlsOptions, 443);
