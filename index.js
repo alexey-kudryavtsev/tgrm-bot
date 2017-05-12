@@ -3,7 +3,7 @@
 var pgConnector=require('./pgnode.js')
 var Telegraf=require('telegraf')
 var fs = require('fs')
-var qrscan = require('./qrscan.js')
+var answers = require('./answers.js')
 
 // Prevent crashing on errors
 process.on('uncaughtException', (err) => {
@@ -36,13 +36,6 @@ function User(userName, loginStatus) {
 // Array of bot users
 var loggedUsers = []
 
-// Function to download and decode QR-photo
-function parseQRPhoto(ctx) {
-	return (r)=>{
-		var QRCode = qrscan.decodeQRCode('https://api.telegram.org/file/bot'+botToken+'/'+r.file_path, (QRCode) => {
-		if(QRCode==='') {ctx.reply('No QR Code is found. Try another photo')} else {ctx.reply('QR code is '+ QRCode)}})
-	}
-}
 
 // Function to check if user has authentication for chatting
 function updateLoginStatus(ctx, nextAction) {
@@ -51,7 +44,7 @@ function updateLoginStatus(ctx, nextAction) {
 	
 	switch(loginStatus) {
 		case 0:
-			ctx.reply("You ara not yet logged in S3 system. Please enter your user name for T2 account:")
+			ctx.reply("You are not yet logged in S3 system. Please enter your user name for T2 account:")
 			loggedUsers[ctx.chat.id].loginStatus=1
 			break;
 		case 1:
@@ -76,23 +69,29 @@ function updateLoginStatus(ctx, nextAction) {
 
 }
 
+// Attach authentication middleware
+bot.use(function(ctx,next) {
+	updateLoginStatus(ctx,()=>{})
+	return next()
+})
+
 // Initialize user on start command and try to authenticate
 bot.command('start', (ctx) => {
-	if(loggedUsers[ctx.chat.id]===undefined) {
-		loggedUsers[ctx.chat.id]=new User(undefined, 0)
-	}
-	
-	updateLoginStatus(ctx,(ctx)=>{ctx.reply('You are logged in as *' + loggedUsers[ctx.chat.id].userName +'*',{	parse_mode:'Markdown'})})
-		
+	if(loggedUsers[ctx.chat.id].loginStatus===3) {
+	ctx.reply('You are logged in as *' + loggedUsers[ctx.chat.id].userName +'*',{	parse_mode:'Markdown'})}
 })
 
 // Specific action for QR-photo
 bot.on("photo", function(ctx) {updateLoginStatus(ctx,function(ctx) {
-	bot.telegram.getFile(ctx.message.photo[ctx.message.photo.length-1].file_id).then(parseQRPhoto(ctx))})})
+	bot.telegram.getFile(ctx.message.photo[ctx.message.photo.length-1].file_id).then(
+		answers.parseQRPhoto(ctx,botToken)
+	)})})
 
 // Generic action
 bot.on("message",function(ctx){
-		updateLoginStatus(ctx,()=>{})
+	if(loggedUsers[ctx.chat.id].loginStatus===3) {
+		ctx.replyWithSticker('CAADAgADNgADyIsGAAFUgH2PcO7e6QI')
+	ctx.reply('Sorry, I don\'t understand your command')}
 	})
 	
 
