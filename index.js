@@ -39,13 +39,13 @@ var loggedUsers = []
 
 // Function to check if user has authentication for chatting
 function updateLoginStatus(ctx, nextAction) {
-	if(loggedUsers[ctx.chat.id]===undefined) {loggedUsers[ctx.chat.id] = new User(undefined, 0)}
 	loginStatus = loggedUsers[ctx.chat.id].loginStatus
-	
 	switch(loginStatus) {
 		case 0:
-			ctx.reply("You are not yet logged in S3 system. Please enter your user name for T2 account:")
-			loggedUsers[ctx.chat.id].loginStatus=1
+			ctx.reply("You are not yet logged in S3 system. Choose login option:",
+			{reply_markup:{inline_keyboard:[[{text:"web-login (safe)",url:"http://t2.maykor.com"}]
+				,[{text:"in chat (unsafe)",callback_data:"loginAction"}
+			]]}})
 			break;
 		case 1:
 			loggedUsers[ctx.chat.id].userName=ctx.message.text
@@ -69,13 +69,31 @@ function updateLoginStatus(ctx, nextAction) {
 
 }
 
+// Add chat to list of users
+bot.use(function(ctx,next) {
+	if(loggedUsers[ctx.chat.id]===undefined) {loggedUsers[ctx.chat.id] = new User(undefined, 0)}
+	return next()
+})
+
+// Attach callback middleware
+bot.action('loginAction',function(ctx,next) {
+	try {
+		if (loggedUsers[ctx.chat.id].loginStatus==0) {
+			ctx.reply('Enter your username:')
+			loggedUsers[ctx.chat.id].loginStatus=1
+			ctx.telegram.answerCallbackQuery(ctx.callbackQuery.id)
+		}
+	}
+	catch(err) { console.log(err)}
+})
+
 // Attach authentication middleware
 bot.use(function(ctx,next) {
 	updateLoginStatus(ctx,()=>{})
 	return next()
 })
 
-// Initialize user on start command and try to authenticate
+// Print user credentials on start command
 bot.command('start', (ctx) => {
 	if(loggedUsers[ctx.chat.id].loginStatus===3) {
 	ctx.reply('You are logged in as *' + loggedUsers[ctx.chat.id].userName +'*',{	parse_mode:'Markdown'})}

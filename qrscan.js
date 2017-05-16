@@ -3,7 +3,7 @@
 var qrcode = require('jsqr')
 var https = require('https')
 var jpeg = require('jpeg-js')
-var fs = require('fs')
+
 
 function decodeQRCode (link, callback) {
 	var image;
@@ -44,12 +44,14 @@ function parseResult(obj) {
 
 	if (!location) {
 		obj.qr=''
+		return
 	}
 	
 	// extract QR-code
 	var rawQR = qrcode.extractQRFromBinaryImage(binarizedImage, location);
 	if (!rawQR) {
 	  obj.qr=''
+	  return
 	}
 	
 	// decode QR to text
